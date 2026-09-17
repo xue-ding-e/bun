@@ -415,3 +415,36 @@ func TestTable(t *testing.T) {
 		})
 	})
 }
+
+func TestFieldDialectSQLTypes(t *testing.T) {
+	dialect := newNopDialect()
+	tables := NewTables(dialect)
+
+	type Model struct {
+		Level   int16  `bun:"type:tinyint,pgtype:smallint,mssqltype:tinyint"`
+		Payload string `bun:"type:text,mysqltype:json"`
+		Plain   string
+	}
+
+	table := tables.Get(reflect.TypeFor[*Model]())
+
+	level := table.FieldMap["level"]
+	require.Equal(t, "tinyint", level.UserSQLType)
+	require.Equal(t, "smallint", level.DialectSQLTypes["pg"])
+	require.Equal(t, "tinyint", level.DialectSQLTypes["mssql"])
+
+	payload := table.FieldMap["payload"]
+	require.Equal(t, "text", payload.UserSQLType)
+	require.Equal(t, "json", payload.DialectSQLTypes["mysql"])
+	require.NotContains(t, payload.DialectSQLTypes, "pg")
+
+	plain := table.FieldMap["plain"]
+	require.Empty(t, plain.DialectSQLTypes)
+
+	sqlType, ok := level.DialectSQLType("pg")
+	require.True(t, ok)
+	require.Equal(t, "smallint", sqlType)
+
+	_, ok = plain.DialectSQLType("pg")
+	require.False(t, ok)
+}

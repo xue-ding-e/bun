@@ -589,6 +589,12 @@ func (t *Table) newField(sf reflect.StructField, tag tagparser.Tag) *Field {
 	if s, ok := field.Tag.Option("type"); ok {
 		field.UserSQLType = s
 	}
+	for name, sqlType := range dialectSQLTypeOptions(tag) {
+		if field.DialectSQLTypes == nil {
+			field.DialectSQLTypes = make(map[string]string)
+		}
+		field.DialectSQLTypes[name] = sqlType
+	}
 	field.DiscoveredSQLType = DiscoverSQLType(field.IndirectType)
 	field.Append = FieldAppender(t.dialect, field)
 	field.Scan = FieldScanner(t.dialect, field)
@@ -1056,6 +1062,11 @@ func isKnownFieldOption(name string) bool {
 	case "column",
 		"alt",
 		"type",
+		"pgtype",
+		"mysqltype",
+		"sqlitetype",
+		"mssqltype",
+		"oracletype",
 		"array",
 		"hstore",
 		"composite",
@@ -1083,6 +1094,21 @@ func isKnownFieldOption(name string) bool {
 		return true
 	}
 	return false
+}
+
+// dialectSQLTypeOptions extracts per-dialect SQL types from tag options like
+// `pgtype:jsonb` or `mysqltype:tinyint`, keyed by dialect.Name().String().
+func dialectSQLTypeOptions(tag tagparser.Tag) map[string]string {
+	var options map[string]string
+	for _, name := range []string{"pg", "mysql", "sqlite", "mssql", "oracle"} {
+		if sqlType, ok := tag.Option(name + "type"); ok && sqlType != "" {
+			if options == nil {
+				options = make(map[string]string)
+			}
+			options[name] = sqlType
+		}
+	}
+	return options
 }
 
 func isKnownFKRule(name string) bool {
