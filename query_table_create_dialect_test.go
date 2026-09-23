@@ -16,20 +16,25 @@ import (
 )
 
 type dialectTypeModel struct {
-	Level int16  `bun:"type:tinyint,pgtype:smallint,mssqltype:tinyint"`
-	Extra string `bun:"type:varchar(64)"`
+	Level   int16   `bun:"type:tinyint;pg=smallint;mssql=tinyint;oracle=NUMBER(3)"`
+	Amount  float64 `bun:"type:decimal(10,2);pg=numeric(12,4);sqlite=REAL"`
+	Payload string  `bun:"type:text;mysql=json;oracle=CLOB"`
+	Extra   string  `bun:"type:varchar(64)"`
 }
 
 func TestCreateTableDialectSQLTypes(t *testing.T) {
 	tests := []struct {
-		name      string // dialect name, e.g. pg, mysql, sqlite
-		dialect   dialect.Name
-		levelType string // type used for the pgtype/mssqltype-tagged column
+		name        string // dialect name, e.g. pg, mysql, sqlite
+		dialect     dialect.Name
+		levelType   string // type used for the dialect-specific column
+		amountType  string
+		payloadType string
 	}{
-		{name: "pg", dialect: dialect.PG, levelType: "smallint"},
-		{name: "mysql", dialect: dialect.MySQL, levelType: "tinyint"},
-		{name: "sqlite", dialect: dialect.SQLite, levelType: "tinyint"},
-		{name: "mssql", dialect: dialect.MSSQL, levelType: "tinyint"},
+		{name: "pg", dialect: dialect.PG, levelType: "smallint", amountType: "numeric(12,4)", payloadType: "text"},
+		{name: "mysql", dialect: dialect.MySQL, levelType: "tinyint", amountType: "decimal(10,2)", payloadType: "json"},
+		{name: "sqlite", dialect: dialect.SQLite, levelType: "tinyint", amountType: "REAL", payloadType: "text"},
+		{name: "mssql", dialect: dialect.MSSQL, levelType: "tinyint", amountType: "decimal(10,2)", payloadType: "text"},
+		{name: "oracle", dialect: dialect.Oracle, levelType: "NUMBER(3)", amountType: "decimal(10,2)", payloadType: "CLOB"},
 	}
 
 	for _, tt := range tests {
@@ -41,6 +46,8 @@ func TestCreateTableDialectSQLTypes(t *testing.T) {
 
 			sqlLower := strings.ToLower(sqlStr)
 			require.Contains(t, sqlLower, "\"level\" "+strings.ToLower(tt.levelType))
+			require.Contains(t, sqlLower, "\"amount\" "+strings.ToLower(tt.amountType))
+			require.Contains(t, sqlLower, "\"payload\" "+strings.ToLower(tt.payloadType))
 			require.Contains(t, sqlLower, "\"extra\" varchar(64)")
 		})
 	}
@@ -61,8 +68,8 @@ func TestCreateTableDialectSQLTypesFallback(t *testing.T) {
 }
 
 type fallbackModel struct {
-	Level   int16  `bun:"type:tinyint"`
-	Payload string `bun:"type:jsonb"`
+	Level   int16  `bun:"type:tinyint;pg=smallint"`
+	Payload string `bun:"type:jsonb;mysql=json"`
 	Extra   string `bun:"type:varchar(64)"`
 }
 
